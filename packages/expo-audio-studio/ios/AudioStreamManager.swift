@@ -704,11 +704,18 @@ class AudioStreamManager: NSObject, AudioDeviceManagerDelegate {
         customTapBlock: ((AVAudioPCMBuffer, AVAudioTime) -> Void)? = nil,
         prepareEngine: Bool = true
     ) -> AVAudioFormat {
-        // Get the hardware input format
         let inputNode = audioEngine.inputNode
+
+        // IMPORTANT: Enable voice processing BEFORE getting formats or installing tap
+        // Voice processing changes the input node's format, so we must enable it first
+        if isVoiceProcessingEnabled {
+            enableVoiceProcessingOnNodes()
+        }
+
+        // Get the hardware input format (after voice processing is configured)
         let inputHardwareFormat = inputNode.inputFormat(forBus: 0)
         let nodeOutputFormat = inputNode.outputFormat(forBus: 0)
-        
+
         // Log format information for diagnostic purposes
         Logger.debug("AudioStreamManager", "Installing tap - Hardware input format: \(describeAudioFormat(inputHardwareFormat))")
         Logger.debug("AudioStreamManager", "Node output format: \(describeAudioFormat(nodeOutputFormat))")
@@ -750,11 +757,6 @@ class AudioStreamManager: NSObject, AudioDeviceManagerDelegate {
         // Install the tap with hardware format
         inputNode.installTap(onBus: 0, bufferSize: bufferSize, format: inputHardwareFormat, block: tapBlock)
         Logger.debug("AudioStreamManager", "Tap installed with hardware-compatible format")
-        
-        // Enable voice processing for echo cancellation if configured
-        if isVoiceProcessingEnabled {
-            enableVoiceProcessingOnNodes()
-        }
 
         // Prepare the engine if requested
         if prepareEngine {
